@@ -26,6 +26,7 @@ ESTIMATEDRTT = 250         # RTT estimado inicial (ms)
 DEVRTT       = 0           # Desvio do RTT estimado inicial (ms)
 
 
+
 ###########################
 ## FUNCOES
 ###########################
@@ -83,17 +84,33 @@ def recvtimeout(s, t):
     
     # retornando o pacote recebido
     return p       
+class Pacote:
+    def __init__(self, seqnum=0,acknum=0,datalen=0,flags=0,window=0,checksum=0) -> None:
+        self.seqnum = seqnum
+        self.acknum = acknum
+        self.datalen = datalen
+        self.flags = flags
+        self.window = window
+        self.checksum = checksum
 
+def create_object_pacote(p):
+    seqnum = struct.unpack("H", p[0:2])
+    acknum = struct.unpack("H", p[2:4])
+    datalen = p[4]
+    flags = p[5]
+    window = struct.unpack("H", p[6:8])
+    checksum = struct.unpack("!H", p[8:10])
 
+    return Pacote(seqnum,acknum,datalen,flags,window,checksum)
 # imprime o pacote
-def print_packet(p):
+def print_packet(p:Pacote):
     print("Imprimindo o pacote:")
-    print("\tseqnum: %d" % struct.unpack("H", p[0:2]))
-    print("\tacknum: %d" % struct.unpack("H", p[2:4]))
-    print("\tdatalen: %d" % p[4])
-    print("\tflags: 0x%x" % p[5])
-    print("\twindow: %d" % struct.unpack("H", p[6:8]))
-    print("\tchecksum: 0x%x" % struct.unpack("!H", p[8:10]))
+    print("\tseqnum: %d" % p.seqnum)
+    print("\tacknum: %d" % p.acknum)
+    print("\tdatalen: %d" % p.datalen)
+    print("\tflags: 0x%x" % p.flags)
+    print("\twindow: %d" % p.window)
+    print("\tchecksum: 0x%x" % p.checksum)
 
 
 # references: 
