@@ -1,7 +1,6 @@
 import struct
 import array
 import socket
-
 ###########################
 ## CONSTANTES
 ###########################

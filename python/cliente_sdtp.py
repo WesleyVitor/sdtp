@@ -63,16 +63,19 @@ def read_bytes_file(pacote3wayhandshake):
                 if pin == -2:
                     print("Erro de timeout - reenviar o pacote")
                 else: # Se Não for -2, então pin é um pacote
+                    print("Pacote recebido:")
+                    print_packet(pacote)
                     pacote = create_object_pacote(pin)
-                    checksumPout = compute_checksum(pin)
-                    if pacote.checksum[0] != checksumPout:
+                    checksumPout = pin[:8] + struct.pack('H', compute_checksum(pin))
+                    checksumP =  struct.unpack("!H", pin[8:10])
+                    if checksumP != checksumPout:
                         print("Pacote Corrompido - reenviar o pacote")
                         pin=-2
                         continue
             
-            seqnum = seqnum + pacote.datalen
-            window = window + pacote.window[0]
-            lido = lido+pacote.acknum[0]
+            seqnum = seqnum + pin[4]
+            window = window + struct.unpack("H", pin[6:8])
+            lido = lido+struct.unpack("H", pin[2:4])
             if (LOREMSIZE - lido) < MSS:
                 line = file.read(LOREMSIZE - lido)
             else:
