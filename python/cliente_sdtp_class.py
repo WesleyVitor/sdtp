@@ -74,24 +74,28 @@ try:
 
             # exemplo de envio de dados
             pout = SDTPPacket()
+            pout.seqnum = pin.acknum
             pout.data = line
             pout.datalen = len(pout.data)
             #pout.flags = 0x0 # NOTE: pacotes de dados possuem flag 0
-            pout.print_struct()
+            
 
             s.sendto(pout.to_struct(), (IP, PORTA))
+            print("Pacote Enviado")
+            pout.print_struct()
 
             res = recvtimeout(s, 2000) # 2000ms
 
             while True:
 
                 if res == -2:
-                    print("Erro de timeout - reenviar o pacote DATA")
-                    # exemplo de envio de dados
-                    pout = SDTPPacket()
-                    pout.data = line
-                    pout.datalen = len(pout.data)
-                    #pout.flags = 0x0 # NOTE: pacotes de dados possuem flag 0
+                    print("Erro de timeout - reenviar o pacote com Dados")
+                    # # exemplo de envio de dados
+                    # pout = SDTPPacket()
+                    # # pout.seqnum = pin.acknum
+                    # pout.data = line
+                    # pout.datalen = len(pout.data)
+                    # #pout.flags = 0x0 # NOTE: pacotes de dados possuem flag 0
                     pout.print_struct()
 
                     s.sendto(pout.to_struct(), (IP, PORTA))
@@ -105,12 +109,13 @@ try:
                     pin.from_struct(res)
                     pin.print_struct()
 
-                    # checando se é um SYN/ACK
+                    
                     if pin.flags != TH_ACK:
-                        # criando e enviando um ack
-                        pout = SDTPPacket()
-                        pout.data = line
-                        pout.datalen = len(pout.data)
+                        print("Reenviando pacote com Dados porque não foi recebido ACK do servidor")
+                        # pout = SDTPPacket()
+                        # # pout.seqnum = pin.acknum
+                        # pout.data = line
+                        # pout.datalen = len(pout.data)
                         #pout.flags = 0x0 # NOTE: pacotes de dados possuem flag 0
                         pout.print_struct()
 
@@ -118,8 +123,22 @@ try:
 
                         res = recvtimeout(s, 2000) # 2000ms
                     else:
-                        #Só sai do loop quando o servidor mandar um pacote ACK
-                        break
+                        if compute_checksum(res) == 0:
+                            #Só sai do loop quando o servidor mandar um pacote ACK
+                            break
+                        else:
+                            print("Reenviando pacote com Dados porque o checksum deu diferente")
+                            # pout = SDTPPacket()
+                            # # pout.seqnum = pin.acknum
+                            # pout.data = line
+                            # pout.datalen = len(pout.data)
+                            #pout.flags = 0x0 # NOTE: pacotes de dados possuem flag 0
+                            pout.print_struct()
+
+                            s.sendto(pout.to_struct(), (IP, PORTA))
+
+                            res = recvtimeout(s, 2000) # 2000ms
+
             line = file.read(pin.window)
 except Exception:
     print("Problema durante a etapa de leitura do arquivo")
@@ -141,42 +160,70 @@ s.sendto(pout.to_struct(), (IP, PORTA))
 # recebendo um pacote pelo socket 's' e aguardando 2 segundos de timeout
 res = recvtimeout(s, 2000) # 2000ms
 
-while res==-2:
-    print("Erro de timeout - reenviar o pacote FIN")
-    pout = SDTPPacket(0, 0, 0, TH_FIN, 0)
-    s.sendto(pout.to_struct(), (IP, PORTA))
-    res = recvtimeout(s, 2000)
-    if res !=-2:
-        break
+while True:
+    if res==-2:
+        print("Erro de timeout - reenviar o pacote FIN")
+        #pout = SDTPPacket(0, 0, 0, TH_FIN, 0)
+        s.sendto(pout.to_struct(), (IP, PORTA))
+        res = recvtimeout(s, 2000)
+    else:
+        print("Pacote recebido:")
+        # NOTE: estou criando um pacote "zerado"
+        pin = SDTPPacket()
+        # e estou atribuindo seus atributos de acordo com a struct recebida
+        pin.from_struct(res)
+        pin.print_struct()
+
+        # checando se é um ACK
+        if pin.flags == TH_ACK:
+            # criando e enviando um ack
+            pout = SDTPPacket(0, 0, 0, TH_ACK, 0)
+            s.sendto(pout.to_struct(), (IP, PORTA))
+            print("Pacote ack enviado:")
+            pout.print()    #Finalizando
+            break
+        else:
+            s.sendto(pout.to_struct(), (IP, PORTA))
+            # recebendo um pacote pelo socket 's' e aguardando 2 segundos de timeout
+            res = recvtimeout(s, 2000) # 2000ms
+print("ACABOU!")
+
+# while res==-2:
+#     print("Erro de timeout - reenviar o pacote FIN")
+#     pout = SDTPPacket(0, 0, 0, TH_FIN, 0)
+#     s.sendto(pout.to_struct(), (IP, PORTA))
+#     res = recvtimeout(s, 2000)
+#     if res !=-2:
+#         break
     
 
-print("Pacote recebido:")
-# NOTE: estou criando um pacote "zerado"
-pin = SDTPPacket()
-# e estou atribuindo seus atributos de acordo com a struct recebida
-pin.from_struct(res)
-pin.print_struct()
+# print("Pacote recebido:")
+# # NOTE: estou criando um pacote "zerado"
+# pin = SDTPPacket()
+# # e estou atribuindo seus atributos de acordo com a struct recebida
+# pin.from_struct(res)
+# pin.print_struct()
 
-# checando se é um ACK
-if pin.flags == TH_ACK:
-    # criando e enviando um ack
-    pout = SDTPPacket(0, 0, 0, TH_ACK, 0)
-    s.sendto(pout.to_struct(), (IP, PORTA))
-    print("Pacote ack enviado:")
-    pout.print()    #Finalizando
+# # checando se é um ACK
+# if pin.flags == TH_ACK:
+#     # criando e enviando um ack
+#     pout = SDTPPacket(0, 0, 0, TH_ACK, 0)
+#     s.sendto(pout.to_struct(), (IP, PORTA))
+#     print("Pacote ack enviado:")
+#     pout.print()    #Finalizando
 
-    # TODO: observe que os dados a enviar devem ser obtidos a partir do
-    # arquivo
+#     # TODO: observe que os dados a enviar devem ser obtidos a partir do
+#     # arquivo
 
-    # TODO: o tamanho dos dados a enviar deve respeitar o tamanho de window
-    # enviado pelo servidor, que é controle de fluxo
+#     # TODO: o tamanho dos dados a enviar deve respeitar o tamanho de window
+#     # enviado pelo servidor, que é controle de fluxo
 
-    # TODO: deve-se verificar se o servidor responde um ACK, caso nao
-    # responda, voce deve reenviar o pacote anterior
+#     # TODO: deve-se verificar se o servidor responde um ACK, caso nao
+#     # responda, voce deve reenviar o pacote anterior
 
-    # TODO: é preciso verificar se o arquivo finalizou, se finalizou, deve-se
-    # encerrar a conexao com o servidor, com um pacote FIN
-print("ACABOU!")
+#     # TODO: é preciso verificar se o arquivo finalizou, se finalizou, deve-se
+#     # encerrar a conexao com o servidor, com um pacote FIN
+# print("ACABOU!")
 # references: 
 # 1. https://kytta.medium.com/tcp-packets-from-scratch-in-python-3a63f0cd59fe
 # 2. https://docs.python.org/3/library/struct.html
